@@ -1,5 +1,12 @@
 <?php
 /**
+ * 在所有页面上显示面包屑导航
+ * 引入
+ * <div class="home-hero__breadcrumb-wrapper">
+ * 	<?php get_template_part('tosho-c-breadcrumb'); ?>
+ * </div>
+ */
+/**
  * Component: Breadcrumb Navigation
  * File: tosho-c-breadcrumb.php
  */
