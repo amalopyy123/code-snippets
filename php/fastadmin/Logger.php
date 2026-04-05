@@ -1,10 +1,16 @@
 <?php
-
-namespace addons\demo\library; // Please replace 'mydemo' with your actual addon directory name
+/**
+ * log内容到文件
+ * \addons\common\library\Logger::log('message','test.log');
+ * \addons\common\library\Logger::log([1,2,3],'test.log');
+ * \addons\common\library\Logger::log(debug_backtrace(2),'test.log');
+ *
+ */
+namespace addons\common\library; // Please replace 'common' with your actual addon directory name
 
 /**
  * Optimized Independent Logger Class
- * Provides Laminas/Monolog (PSR-3) style logging capabilities.
+ * Provides Laminas/Monolog (PSR-3) style logging capabilities with pretty array formatting.
  */
 class Logger
 {
@@ -41,23 +47,23 @@ class Logger
         $level = strtoupper($level);
 
         // [Optimization 2: Robust Type Handling]
-        // Specifically handle Exceptions/Throwables, otherwise json_encode might convert them into an empty {}
+        // Specifically handle Exceptions/Throwables
         if ($content instanceof \Exception || $content instanceof \Throwable) {
-            // Casting to string retains the error message, file, line number, and stack trace
             $content = (string) $content;
         } elseif (is_array($content) || is_object($content)) {
-            // [Optimization 3: JSON Fault Tolerance]
-            // Use JSON_PARTIAL_OUTPUT_ON_ERROR to prevent json_encode from returning false due to invalid data (e.g., resource types)
-            $content = json_encode($content, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR);
+            // [Optimization 3: Pretty Print]
+            // Added JSON_PRETTY_PRINT here! It formats the array with newlines and indents.
+            $content = json_encode(
+                $content,
+                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_PRETTY_PRINT
+            );
         }
 
         // [Optimization 4: PSR-3 Placeholder Interpolation]
-        // Similar to Laminas/Monolog style.
         // Example: log("User {name} paid", "order", "info", ["name" => "John"])
         if (is_string($content) && !empty($context)) {
             $replace = [];
             foreach ($context as $key => $val) {
-                // Only scalars or objects with a __toString method can be interpolated
                 if (is_scalar($val) || (is_object($val) && method_exists($val, '__toString'))) {
                     $replace['{' . $key . '}'] = $val;
                 }
@@ -67,17 +73,19 @@ class Logger
             }
         }
 
-        // Append context data to the end of the log message
+        // Append context data with a newline for better readability when using pretty print
         if (!empty($context)) {
-            $content .= ' | Context: ' . json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR);
+            $contextStr = json_encode(
+                $context,
+                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_PRETTY_PRINT
+            );
+            $content .= PHP_EOL . 'Context: ' . $contextStr;
         }
 
         // Format the final log line: [Time] [LEVEL] Content
         $logMessage = sprintf("[%s] [%s] %s" . PHP_EOL, $time, $level, $content);
 
         // [Optimization 5: Catch \Throwable]
-        // Compatible with PHP 7+ to catch severe errors (e.g., TypeError).
-        // FILE_APPEND ensures data is added to the end; LOCK_EX prevents concurrent write conflicts.
         try {
             return file_put_contents($filePath, $logMessage, FILE_APPEND | LOCK_EX) !== false;
         } catch (\Throwable $e) {
